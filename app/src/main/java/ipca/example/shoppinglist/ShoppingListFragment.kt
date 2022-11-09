@@ -10,13 +10,18 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.Observer
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import ipca.example.shoppinglist.databinding.FragmentFirstBinding
 import ipca.example.shoppinglist.databinding.RowItemBinding
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.*
+import kotlin.collections.ArrayList
 
 
 class ShoppingListFragment : Fragment() {
@@ -41,8 +46,6 @@ class ShoppingListFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        items.add(Item("adsfw", "Leite", Date(), 1.0))
-        items.add(Item("ewfw", "Açucar", Date(), 1.0))
 
         binding.recycleViewItems.layoutManager =
             LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false)
@@ -51,10 +54,32 @@ class ShoppingListFragment : Fragment() {
 
         binding.fabAdd.setOnClickListener {
             AddItem.show(childFragmentManager) {
-                items.add(Item("adsfw", it, Date(), 1.0))
+                lifecycleScope.launch (Dispatchers.IO){
+                    AppDatabase.getDatabase(requireContext()).itemDao().insert(
+                        Item(
+                            UUID.randomUUID().toString(),
+                            it,
+                            Date(),
+                            1.0
+                        )
+                    )
+                }
             }
         }
 
+
+
+
+    }
+
+    override fun onResume() {
+        super.onResume()
+        AppDatabase.getDatabase(requireContext())
+            .itemDao()
+            .getAll().observe(viewLifecycleOwner, Observer {
+                items = it as ArrayList<Item>
+                adapter.notifyDataSetChanged()
+            })
     }
 
     override fun onDestroyView() {
@@ -87,13 +112,16 @@ class ShoppingListFragment : Fragment() {
 
                 buttonPlus.setOnClickListener{
                     item.qtd += 1.0
-
-                    adapter.notifyItemChanged(position)
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        AppDatabase.getDatabase(requireContext()).itemDao().update(item)
+                    }
                 }
 
                 buttonMinus.setOnClickListener{
                     item.qtd -= 1.0
-                    adapter.notifyItemChanged(position)
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        AppDatabase.getDatabase(requireContext()).itemDao().update(item)
+                    }
                 }
             }
 
